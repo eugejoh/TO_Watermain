@@ -1,0 +1,17 @@
+{
+    "contents" : "library(shiny)\nui <- shinyUI(pageWithSidebar(\n   \n   # Application title\n   headerPanel(\"Old Faithful Geyser Data\"),\n   \n   # Sidebar with a slider input for number of bins\n   sidebarPanel(\n      sliderInput(\"bins\",\n                  \"Number of bins:\",\n                  min = 1,\n                  max = 50,\n                  value = 30)\n   ),\n   \n   # Show a plot of the generated distribution\n   mainPanel(\n      plotOutput(\"distPlot\")\n   )\n))\nserver <- function(input, output) {\n   output$distPlot <- renderPlot({\n      \n      # generate bins based on input$bins from ui.R\n      x    <- faithful[, 2] \n      bins <- seq(min(x), max(x), length.out = input$bins + 1)\n      \n      # draw the histogram with the specified number of bins\n      hist(x, breaks = bins, col = 'darkgray', border = 'white')\n      \n   })\n   \n}\nshinyApp(ui = ui, server = server)",
+    "created" : 1508961222880.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "3850416224",
+    "id" : "A53D2831",
+    "lastKnownWriteTime" : 1508961576,
+    "path" : "H:/Eugene_R_Code/Toronto Water Main Breaks/TO_Watermain_Interact/app.R",
+    "project_path" : "app.R",
+    "properties" : {
+        "tempName" : "Untitled1"
+    },
+    "source_on_save" : false,
+    "type" : "r_source"
+}

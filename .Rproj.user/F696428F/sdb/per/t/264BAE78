@@ -1,0 +1,21 @@
+{
+    "collab_server" : "",
+    "contents" : "# Visualize Spatial Data function ####\nplot.TO.wm <- function(y1,y2 = NULL,m1 = NULL,m2 = NULL, #next step is to generate option for breakdown by months in a year\n                       face = TRUE, ncol = 5, band = 150, \n                       file.out = FALSE, w = NULL, h = NULL, title.size = 18) {\n  \n  my_theme <- theme(axis.text = element_blank(),axis.title = element_blank(),\n                    axis.ticks = element_blank(), legend.position = \"none\",\n                    panel.grid.minor = element_blank(), panel.grid.major = element_blank(),\n                    strip.background = element_rect(fill = \"grey85\"),\n                    strip.text = element_text(size = title.size*0.8), title = element_text(size = title.size),\n                    plot.background = element_rect(fill = \"grey95\"))\n  \n  if (missing(y2)) {\n    \n    g.out <- ggplot(data = wm.df %>% filter(Year == y1), aes(x = X_coord, y = Y_coord)) +\n      geom_point(size = 1, alpha = 0.5, colour = \"grey5\") +\n      labs(title = paste0(\"Point Density Map of Watermain Breaks\",\"\\n\",\n                          \"City of Toronto \",\"(\",y1,\")\")) +\n      stat_density_2d(aes(fill = ..density.., alpha = ..density..), \n                      geom = \"tile\", contour = FALSE, n = band) +\n      scale_fill_viridis(guide = \"none\", option = \"inferno\") + my_theme +\n      geom_text(data = wm.df %>% filter(Year == y1) %>% \n                  summarise(n = paste(\"n =\",sum(Year=n()))),\n                aes(x=328000,y=4830000,label = n), size = title.size*0.4)\n    \n    return(g.out)\n    \n  } else {\n    \n    g.out <- ggplot(data = wm.df %>% filter(Year %in% seq(y1,y2,1)), aes(x = X_coord, y = Y_coord)) +\n      geom_point(size = 1, alpha = 0.5, colour = \"grey5\") +\n      labs(title = paste0(\"Point Density Map of Watermain Breaks\",\"\\n\",\n                          \"City of Toronto \",\"(Cumulative \",y1,\"-\",y2,\")\")) +\n      stat_density_2d(aes(fill = ..density.., alpha = ..density..), \n                      geom = \"tile\", contour = FALSE, n = band) +\n      scale_fill_viridis(guide = \"none\", option = \"inferno\") + my_theme\n    \n  }\n  \n  if (face == TRUE) {\n    \n    g.out <- g.out + facet_wrap(~Year, ncol = ncol, drop = TRUE) +\n      geom_text(data = wm.df %>% filter(Year %in% seq(y1,y2,1)) %>%\n                  group_by(Year) %>% summarise(n = paste(\"n =\",length(Year))),\n                aes(x=328000,y=4830000,label = n), size = title.size*0.4)  \n    \n  } else {\n    \n    wm.df %>% filter(Year %in% seq(y1,y2,1)) %>%\n      summarise(n = paste(\"n =\",sum(Year=n())))\n    g.out <- g.out + \n      geom_text(data = wm.df %>% filter(Year %in% seq(y1,y2,1)) %>%\n                  summarise(n = paste(\"n =\",sum(Year=n()))),\n                aes(x=328000,y=4830000,label = n), size = title.size*0.4)\n  }\n  \n  if(file.out == TRUE) {\n    \n    ppi <- 300\n    filename <- paste0(\"TO_watermains_\",y1,\"-\",y2,\".png\")\n    png(filename, width = w*ppi, height = h*ppi, res = ppi,units = \"px\", pointsize = .7)\n    print(g.out)\n    dev.off()\n    \n  } else {\n    \n    return(g.out)\n    \n  }\n  \n}\n",
+    "created" : 1510685488760.000,
+    "dirty" : false,
+    "encoding" : "UTF-8",
+    "folds" : "",
+    "hash" : "3329716803",
+    "id" : "264BAE78",
+    "lastKnownWriteTime" : 1510685506,
+    "last_content_update" : 1510685506903,
+    "path" : "~/GitHub/TO_Watermain/fnc/plot.TO.wm.R",
+    "project_path" : "fnc/plot.TO.wm.R",
+    "properties" : {
+        "tempName" : "Untitled1"
+    },
+    "relative_order" : 3,
+    "source_on_save" : false,
+    "source_window" : "",
+    "type" : "r_source"
+}
