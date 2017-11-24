@@ -12,22 +12,22 @@ plot.TO.wm <- function(y1,y2 = NULL,m1 = NULL,m2 = NULL, #next step is to genera
   
   if (missing(y2)) {
     
-    g.out <- ggplot(data = wm.df %>% filter(Year == y1), aes(x = X_coord, y = Y_coord)) +
+    g.out <- ggplot(data = wm.df %>% filter(year == y1), aes(x = X_coord, y = Y_coord)) +
       geom_point(size = 1, alpha = 0.5, colour = "grey5") +
       labs(title = paste0("Point Density Map of Watermain Breaks","\n",
                           "City of Toronto ","(",y1,")")) +
       stat_density_2d(aes(fill = ..density.., alpha = ..density..), 
                       geom = "tile", contour = FALSE, n = band) +
       scale_fill_viridis(guide = "none", option = "inferno") + my_theme +
-      geom_text(data = wm.df %>% filter(Year == y1) %>% 
-                  summarise(n = paste("n =",sum(Year=n()))),
+      geom_text(data = wm.df %>% filter(year == y1) %>% 
+                  summarise(n = paste("n =",sum(year=n()))),
                 aes(x=328000,y=4830000,label = n), size = title.size*0.4)
     
     return(g.out)
     
   } else {
     
-    g.out <- ggplot(data = wm.df %>% filter(Year %in% seq(y1,y2,1)), aes(x = X_coord, y = Y_coord)) +
+    g.out <- ggplot(data = wm.df %>% filter(year %in% seq(y1,y2,1)), aes(x = X_coord, y = Y_coord)) +
       geom_point(size = 1, alpha = 0.5, colour = "grey5") +
       labs(title = paste0("Point Density Map of Watermain Breaks","\n",
                           "City of Toronto ","(Cumulative ",y1,"-",y2,")")) +
@@ -39,18 +39,18 @@ plot.TO.wm <- function(y1,y2 = NULL,m1 = NULL,m2 = NULL, #next step is to genera
   
   if (face == TRUE) {
     
-    g.out <- g.out + facet_wrap(~Year, ncol = ncol, drop = TRUE) +
-      geom_text(data = wm.df %>% filter(Year %in% seq(y1,y2,1)) %>%
-                  group_by(Year) %>% summarise(n = paste("n =",length(Year))),
+    g.out <- g.out + facet_wrap(~year, ncol = ncol, drop = TRUE) +
+      geom_text(data = wm.df %>% filter(year %in% seq(y1,y2,1)) %>%
+                  group_by(year) %>% summarise(n = paste("n =",length(year))),
                 aes(x=328000,y=4830000,label = n), size = title.size*0.4)  
     
   } else {
     
-    wm.df %>% filter(Year %in% seq(y1,y2,1)) %>%
-      summarise(n = paste("n =",sum(Year=n())))
+    wm.df %>% filter(year %in% seq(y1,y2,1)) %>%
+      summarise(n = paste("n =",sum(year=n())))
     g.out <- g.out + 
-      geom_text(data = wm.df %>% filter(Year %in% seq(y1,y2,1)) %>%
-                  summarise(n = paste("n =",sum(Year=n()))),
+      geom_text(data = wm.df %>% filter(year %in% seq(y1,y2,1)) %>%
+                  summarise(n = paste("n =",sum(year=n()))),
                 aes(x=328000,y=4830000,label = n), size = title.size*0.4)
   }
   

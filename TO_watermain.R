@@ -7,7 +7,7 @@ cat("\014")
 Sys.Date()
 sessionInfo()
 
-list.of.packages <- c("readxl","ggplot2","dplyr","magrittr",
+list.of.packages <- c("readr","readxl","ggplot2","dplyr","magrittr",
                       "viridis","lubridate","grid","gridExtra",
                       "maps","ggmap","cluster","knitr","dygraphs","xts")
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
@@ -21,11 +21,11 @@ watermain.files <- list.files("data", pattern = "\\.xlsx$")
 # Data ####
 wm.df <- read_excel(paste0("data/",watermain.files))
 head(wm.df)
-names(wm.df) <- c("Date","Year","X_coord","Y_coord")
+names(wm.df) <- c("Date","year","X_coord","Y_coord")
 dim(wm.df)
 str(wm.df)
-wm.df$Year_f <- as.factor(wm.df$Year)
-wm.df$Year <- as.integer(wm.df$Year)
+wm.df$year_f <- as.factor(wm.df$year)
+wm.df$year <- as.integer(wm.df$year)
 
 # Add extra resolution with dates
 wm.df$week <- floor_date(wm.df$Date, unit = "week")
@@ -51,15 +51,19 @@ sort(wm.df$Y_coord,decreasing = F)[1:3] # Y_coord errors, three
 wm.df[which(wm.df$Y_coord %in% sort(wm.df$Y_coord,decreasing = F)[1:3]),]
 wm.df <- wm.df[-which(wm.df$Y_coord %in% sort(wm.df$Y_coord,decreasing = F)[1:3]),] #remove these errors
 
+# Rename for left join with weather data
+wm.df <- wm.df %>% 
+  mutate(date = as.Date(Date))
+
 # Visualize Time Data ####
 
 # Number of counts in each month and week ####
 month.wm <- wm.df %>% count(month)
 week.wm <- wm.df %>% count(week)
-year.wm <- wm.df %>% group_by(Year) %>% count(Year)
+year.wm <- wm.df %>% group_by(year) %>% count(year)
 
-mthwk.wm <- wm.df %>% group_by(Year,week,month) %>%
-   count(week,month,Year) %>% mutate(month_n = month(month, label = T)) %>% mutate(yweek = week(week))
+mthwk.wm <- wm.df %>% group_by(year,week,month) %>%
+   count(week,month,year) %>% mutate(month_n = month(month, label = T)) %>% mutate(yweek = week(week))
 mthwk.wm #counts by week, but corresponding month and year used
 
 
@@ -79,19 +83,20 @@ ggplot(mthwk.wm, aes(x=month_n,y=n)) +
 
 # colour by year
 ggplot(mthwk.wm, aes(x=yweek,y=n)) +
-   geom_line(aes(colour = as.factor(Year)), alpha = 0.6, size = 1.5)
+   geom_line(aes(colour = as.factor(year)), alpha = 0.6, size = 1.5)
 
 #jitter
 ggplot(data = mthwk.wm, aes(x = week, y = n)) +
    geom_jitter(width = 0.4, size = 2, alpha = 0.5)
 
 # yearly trend line plot
-ggplot(data = year.wm, aes(x = Year, y = n)) +
+ggplot(data = year.wm, aes(x = year, y = n)) +
    geom_line() + geom_smooth(method = "loess", se = TRUE) +
    geom_smooth(method = "lm", se = FALSE, colour = "red")
 
-summary(lm(n ~ Year, year.wm))
-lm(n ~ Year, year.wm)$coef[2]
+summary(lm(n ~ year, year.wm))
+lm(n ~ year, year.wm)$coef[2]
+
 
 # Interactive htmlwidgets use ####
 week.wm <- as.data.frame(week.wm)
@@ -147,8 +152,6 @@ dygraph(wm.tsm, main = "City of Toronto Watermain Breaks by Month") %>%
   dyOptions(includeZero = TRUE, fillAlpha = 0.25) %>%
   dyRangeSelector(dateWindow = c("2007-01-01", "2017-01-01")) %>%
   add_shades(ok_periods, color = "#E3E2E2")
-
-
 
 # Visualize Spatial Data ####
 # Plot the spatial data
