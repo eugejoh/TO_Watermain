@@ -175,6 +175,34 @@ plot.TO.wm(1993,1998,ncol=2,face = T, band = 200)
 plot.TO.wm(1990,2016,face = T,ncol = 4,band = 200,
            file.out = TRUE, h = 14, w = 9)
 
+# Plot animation of spatial data
+
+for (i in unique(wm.df$year)) {
+  print(i)
+  
+  
+}
+
+
+ggplot(data = wm.df %>% filter(year == i), aes(x = X_coord, y = Y_coord)) +
+  geom_point(size = 1, alpha = 0.75, colour = "grey5") +
+  labs(title = paste0("Point Density Map of Watermain Breaks"),
+       subtitle = paste0("City of Toronto ","(",i,")")) +
+  stat_density_2d(aes(fill = ..density.., alpha = ..density..), 
+                  geom = "tile", contour = FALSE, n = 150) +
+  scale_fill_viridis(guide = "none", option = "inferno") + 
+  geom_text(data = wm.df %>% filter(year == i) %>% 
+              summarise(n = paste("n =",sum(year=n()))),
+            aes(x=328000,y=4830000,label = n), size = title.size*0.4) +
+  theme(axis.text = element_blank(),axis.title = element_blank(),
+        axis.ticks = element_blank(), legend.position = "none",
+        panel.grid.minor = element_blank(), panel.grid.major = element_blank(),
+        plot.title = element_text(size = title.size, face = "bold"),
+        plot.subtitle = element_text(size = title.size*0.6, face = "plain"),
+        plot.background = element_rect(fill = "grey95"))
+
+
+
 # Overlay on Map #
 names(wm.df)
 wm.coord <- wm.df %>% select(X_coord, Y_coord) %>% as.data.frame()
