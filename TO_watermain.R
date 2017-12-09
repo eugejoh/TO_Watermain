@@ -27,6 +27,25 @@ str(wm.df)
 wm.df$year_f <- as.factor(wm.df$year)
 wm.df$year <- as.integer(wm.df$year)
 
+# write MTM X-,Y-coord file
+# follow steps for http://webapp.geod.nrcan.gc.ca/geod/tools-outils/ntv2.php#GRIDSELECTOR
+# Grid: TO27CSv1, NAD83 1997 (selection for Toronto)
+# MTM, NAD27 to geographic coordinates (lat,lon)
+out.wm <- as.data.frame(cbind(seq(nrow(wm.df)), #id values (row numbers)
+                              wm.df$Y_coord, #northing
+                              wm.df$X_coord, #easting
+                              rep("ON-10",nrow(wm.df)))) #MTM Zone in Ontario #10
+names(out.wm) <- c("STA","utm_n","utm_e","utm_z")
+write_csv(out.wm,path = paste0(getwd(),"/result/wm_coord.csv"))
+
+# Read-in lat, lon data
+latlon.d <- list.files(paste0(getwd(),"/result/"),pattern = "35564")
+latlon <- read_csv(paste0(getwd(),"/result/",latlon.d))
+latlon[,c("lon","lat")]
+
+# Bind lat/lon to wm.df
+wm.df <- wm.df %>% bind_cols(latlon %>% select(lat,lon))
+
 # Add extra resolution with dates
 wm.df$week <- floor_date(wm.df$Date, unit = "week")
 wm.df$month <- floor_date(wm.df$Date, unit = "month")
@@ -85,6 +104,25 @@ ggplot(mthwk.wm, aes(x=month_n,y=n)) +
 ggplot(mthwk.wm, aes(x=yweek,y=n)) +
    geom_line(aes(colour = as.factor(year)), alpha = 0.6, size = 1.5)
 
+library(animation)
+aspect.w <- 800
+aspect.r <- 1.6
+title.size = 20
+ani.options(ani.width=aspect.w,ani.height=aspect.w/aspect.r, units="px")
+
+saveGIF( {
+  for (i in unique(mth.wm$Year)) {
+    g.loop <- ggplot(data=mth.wm, aes(x=month_n,y=n)) +
+      geom_boxplot(aes(group=month_n)) +
+      stat_summary(data = subset(mth.wm, Year == i), fun.y=median, geom="line",
+                   aes(group=1), color = "#222FC8", alpha = 0.6, size = 2) +
+      labs(title = paste0("Seasonality of Watermain Breaks in Toronto (",i,")"),
+           x = "Month", y = "Number of Breaks per Month") +
+      theme(plot.title = element_text(size = title.size, face = "bold"))
+    print(g.loop)
+  }
+}, movie.name = "wm_wm.gif",interval=0.9,nmax=30,2)
+
 #jitter
 ggplot(data = mthwk.wm, aes(x = week, y = n)) +
    geom_jitter(width = 0.4, size = 2, alpha = 0.5)
@@ -108,6 +146,32 @@ month.wm <- as.data.frame(month.wm)
 wm.tsm <- xts(month.wm$n, order.by=month.wm$month, tz="UTC")
 names(wm.tsm) <- c("Breaks")
 
+# time series decomposition
+m.ts <- ts(month.wm$n,start=c(1990,1),frequency=12) #create ts object
+library(forecast)
+autoplot(m.ts, main = "Time Series Watermain Breaks per Month in Toronto") #plot monthly trend
+ytrend_m.ts <- ma(m.ts,order = 12, centre = TRUE) #order 12 for yearly trend
+autoplot(ytrend_m.ts,main = "Yearly Trend for Watermain Breaks per Month")
+# detrended time series
+detrend_m.ts <- m.ts - ytrend_m.ts
+autoplot(detrend_m.ts, main = "Detrended Watermain Breaks per Month")
+
+# using decompose
+autoplot(decompose(m.ts, type = "additive"))
+plot(decompose(m.ts, type = "additive"))
+
+# using stl
+autoplot(stl(m.ts, s.window = "periodic", robust = TRUE))
+plot(stl(m.ts, s.window = "periodic", robust = TRUE))
+
+# detect outliers using median not mean
+# http://www.sciencedirect.com/science/article/pii/S0022103113000668
+
+
+
+
+plot(decompose(ts(month.wm[,2],start=c(1990,1),frequency=12),type = "add"))
+plot(stl(ts(month.wm[,2],start=c(1990,1),frequency=12),s.window = "periodic",robust = TRUE))
 
 str(index(wm.ts))
 
@@ -154,7 +218,48 @@ dygraph(wm.tsm, main = "City of Toronto Watermain Breaks by Month") %>%
   add_shades(ok_periods, color = "#E3E2E2")
 
 # Visualize Spatial Data ####
+
+# using X_coord, Y_coord
+g1 <-ggplot(data = wm.df %>% filter(year == i), aes(x = X_coord, y = Y_coord)) +
+  geom_point(size = 1, alpha = 0.75, colour = "grey5") +
+  labs(title = paste0("Point Density Map of Watermain Breaks"),
+       subtitle = paste0("City of Toronto ","(",i,")")) +
+  stat_density_2d(aes(fill = ..density.., alpha = ..density..), contour = FALSE, 
+                  geom = "raster", n = 200) +
+  scale_fill_viridis(guide = "none", option = "inferno") + 
+  scale_alpha(breaks=c(0,1),range = c(0, 1)) 
+
+# using lon, lat
+g2 <- ggplot(data = wm.df %>% filter(year == i), aes(x = lon, y = lat)) +
+  geom_point(size = 1, alpha = 0.75, colour = "grey5") +
+  labs(title = paste0("Point Density Map of Watermain Breaks"),
+       subtitle = paste0("City of Toronto ","(",i,")")) +
+  stat_density_2d(aes(fill = ..density.., alpha = ..density..), contour = FALSE, 
+                  geom = "raster", n = 200) +
+  scale_fill_viridis(guide = "none", option = "inferno") + 
+  scale_alpha(breaks=c(0,1),range = c(0, 1)) 
+
+grid.arrange(g1,g2,nrow=2)
+
+
+
+
+
 # Plot the spatial data
+
+ggplot(data = wm.df, aes(x = X_coord, y = Y_coord, color = year)) +
+  geom_point(size = 1.5, alpha = 0.2) +
+  scale_color_viridis(option = "B") +
+  labs(title = paste0("Map of Watermain Breaks"),
+       subtitle = paste0("City of Toronto (1990-2016)")) +
+  theme(axis.text = element_blank(), axis.title = element_blank(),
+        axis.ticks = element_blank(), panel.background = element_rect(fill = "grey95",colour = "grey5"),
+        legend.background = element_rect(fill = "grey95"),
+        panel.grid.minor = element_blank(), panel.grid.major = element_blank(),
+        plot.title = element_text(size = title.size, face = "bold"),
+        plot.subtitle = element_text(size = title.size*0.6, face = "plain"),
+        plot.background = element_rect(fill = "grey95"))
+
 source('~/GitHub/TO_Watermain/fnc/plot.TO.wm.R')
 
 # plot of only 2016
@@ -177,20 +282,48 @@ plot.TO.wm(1990,2016,face = T,ncol = 4,band = 200,
 
 # Plot animation of spatial data
 
-for (i in unique(wm.df$year)) {
-  print(i)
-  
-  
-}
+library(animation)
+aspect.w <- 800
+aspect.r <- 1.6
+title.size <- 20
+t <- 2000
+ani.options(ani.width=aspect.w,ani.height=aspect.w/aspect.r, units="px")
+
+saveGIF( {
+  for (i in unique(wm.df$year)) {
+    g.loop <- ggplot(data = wm.df %>% filter(year == i), aes(x = X_coord, y = Y_coord)) +
+      geom_point(size = 1, alpha = 0.75, colour = "grey5") +
+      labs(title = paste0("Point Density Map of Watermain Breaks"),
+           subtitle = paste0("City of Toronto ","(",i,")")) +
+      stat_density_2d(aes(fill = ..density.., alpha = ..density..), 
+                      geom = "tile", contour = FALSE, n = 150) +
+      scale_fill_viridis(guide = "none", option = "inferno") + 
+      scale_alpha(breaks=c(0,1),range = c(0, 1)) +
+      geom_text(data = wm.df %>% filter(year == i) %>% 
+                  summarise(n = paste("n =",sum(year=n()))),
+                aes(x=328000,y=4830000,label = n), size = title.size*0.4) +
+      theme(axis.text = element_blank(),axis.title = element_blank(),
+            axis.ticks = element_blank(), legend.position = "none",
+            panel.grid.minor = element_blank(), panel.grid.major = element_blank(),
+            plot.title = element_text(size = title.size, face = "bold"),
+            plot.subtitle = element_text(size = title.size*0.6, face = "plain"),
+            plot.background = element_rect(fill = "grey95")) +
+      coord_fixed(xlim = c(294164+t,335202-t), ylim = c(4827194+t,4855952-t))
+    print(g.loop)
+  }
+}, movie.name = "wm_sp.gif", interval=0.9, nmax=30,2)
 
 
+i <- 2016
+t <- 2000
 ggplot(data = wm.df %>% filter(year == i), aes(x = X_coord, y = Y_coord)) +
   geom_point(size = 1, alpha = 0.75, colour = "grey5") +
   labs(title = paste0("Point Density Map of Watermain Breaks"),
        subtitle = paste0("City of Toronto ","(",i,")")) +
-  stat_density_2d(aes(fill = ..density.., alpha = ..density..), 
-                  geom = "tile", contour = FALSE, n = 150) +
+  stat_density_2d(aes(fill = ..density.., alpha = ..density..), contour = FALSE, 
+                  geom = "raster", n = 200) +
   scale_fill_viridis(guide = "none", option = "inferno") + 
+  scale_alpha(breaks=c(0,1),range = c(0, 1)) +
   geom_text(data = wm.df %>% filter(year == i) %>% 
               summarise(n = paste("n =",sum(year=n()))),
             aes(x=328000,y=4830000,label = n), size = title.size*0.4) +
@@ -200,21 +333,99 @@ ggplot(data = wm.df %>% filter(year == i), aes(x = X_coord, y = Y_coord)) +
         plot.title = element_text(size = title.size, face = "bold"),
         plot.subtitle = element_text(size = title.size*0.6, face = "plain"),
         plot.background = element_rect(fill = "grey95"))
-
-
-
+ 
 # Overlay on Map #
-names(wm.df)
-wm.coord <- wm.df %>% select(X_coord, Y_coord) %>% as.data.frame()
-library(rgdal)
-coordinates(wm.coord) <-  ~ X_coord + Y_coord
-str(wm.coord)
-#http://leware.net/geo/utmgoogleapp.htm
+TO.lims <- c(left=-79.73238,bottom=43.59641,right=-79.02154,top=43.74549)
+TO.coord <- c(lon = -79.3832, lat = 43.6532)
+TO_map1 <- get_map(location = TO.lims, maptype = "terrain",
+              scale = 2, color = "bw", zoom = 11)
 
-wm.coord <- SpatialPoints(wm.coord, proj4string=CRS("+proj=utm + +zone=17T +datum=NAD27"))
-wm.latlon <- spTransform(wm.coord, CRS("+proj=longlat +datum=WGS84"))
-df.latlon <- as.data.frame(wm.latlon)
-sbbox <- make_bbox(lon = df.latlon[,1], lat = df.latlon[,2], f = 0.01)
-my_map <- get_map(location = sbbox, maptype = "roadmap", 
-                  scale = 2, color="bw", zoom = 10)
-ggmap(my_map)
+ggmap(TO_map1) +
+  geom_point(data = wm.df, aes(x = lon, y = lat), 
+             size = 1, alpha = 0.25, colour = "grey5") +
+  stat_density_2d(data = wm.df, 
+                  aes(x = lon, y = lat, fill = ..density.., alpha = ..density..), 
+                  geom = "density_2d", bins = 20) +
+  scale_fill_viridis(guide = "none", option = "inferno") + 
+  scale_alpha(range = c(0, 1))
+
+
+sbbox <- make_bbox(lon = wm.df$lon, lat = wm.df$lat, f = 0.001)
+TO_map2 <- get_map(location = sbbox, maptype = "roadmap",
+        scale = 2, color = "bw", zoom = 10)
+
+ggmap(TO_map2, extent = "panel") +
+  geom_point(data = wm.df, aes(x = lon, y = lat), shape = 3,
+             size = 1, alpha = 0.1, colour = "grey5") +
+  stat_density_2d(data = wm.df, 
+                  aes(x = lon, y = lat, alpha = ..level.., fill = ..level..), 
+                  geom = "polygon", bins = 200) +
+  scale_fill_viridis(guide = "none", option = "inferno", begin = 0, end = 1, direction = 1) + 
+  scale_alpha(range = c(0, 0.1), guide = FALSE) + 
+  scale_y_continuous(limits = c(43.57,43.815)) +
+  scale_x_continuous(limits = c(-79.65,-79.1)) +
+  theme(axis.text = element_blank(),axis.title = element_blank(),
+        axis.ticks = element_blank(), legend.position = "none",
+        panel.grid.minor = element_blank(), panel.grid.major = element_blank(),
+        plot.title = element_text(size = title.size, face = "bold"),
+        plot.subtitle = element_text(size = title.size*0.6, face = "plain"),
+        plot.background = element_rect(fill = "grey95")) +
+  labs(title = paste0("Point Density Map of Watermain Breaks"),
+       subtitle = paste0("City of Toronto "))
+# year
+saveGIF( {
+  for (i in unique(wm.df$year)) {
+    g.loop <- ggmap(TO_map2, extent = "panel") +
+      geom_point(data = wm.df %>% filter(year == i), aes(x = lon, y = lat), shape = 3,
+                 size = 1, alpha = 0.8, colour = "grey5") +
+      stat_density_2d(data = wm.df %>% filter(year == i), 
+                      aes(x = lon, y = lat, alpha = ..level.., fill = ..level..), 
+                      geom = "polygon", bins = 100) +
+      scale_fill_viridis(guide = "none", option = "inferno") + 
+      scale_alpha(range = c(0, 0.05), guide = FALSE) + 
+      scale_y_continuous(limits = c(43.57,43.815)) +
+      scale_x_continuous(limits = c(-79.65,-79.1)) +
+      theme(axis.text = element_blank(),axis.title = element_blank(),
+            axis.ticks = element_blank(), legend.position = "none",
+            panel.grid.minor = element_blank(), panel.grid.major = element_blank(),
+            plot.title = element_text(size = title.size, face = "bold"),
+            plot.subtitle = element_text(size = title.size*0.6, face = "plain"),
+            plot.background = element_rect(fill = "grey95")) +
+      labs(title = paste0("Point Density Map of Watermain Breaks"),
+           subtitle = paste0("City of Toronto ","(",i,")")) +
+      geom_text(data = wm.df %>% filter(year == i) %>% 
+                  summarise(n = paste("n =",sum(year=n()))),
+                aes(x=-79.17,y=43.62,label = n), size = title.size*0.3) 
+    print(g.loop)
+  }
+}, movie.name = "wm_map.gif", interval=0.9, nmax=30,2)
+
+
+saveGIF( {
+  for (i in unique(wm.df$month)) {
+    g.loop <- ggmap(TO_map2, extent = "panel") +
+      geom_point(data = wm.df %>% filter(month == i), aes(x = lon, y = lat), shape = 3,
+                 size = 1, alpha = 0.8, colour = "grey5") +
+      stat_density_2d(data = wm.df %>% filter(month == i), 
+                      aes(x = lon, y = lat, alpha = ..level.., fill = ..level..), 
+                      geom = "polygon", bins = 100) +
+      scale_fill_viridis(guide = "none", option = "inferno") + 
+      scale_alpha(range = c(0, 0.05), guide = FALSE) + 
+      scale_y_continuous(limits = c(43.57,43.815)) +
+      scale_x_continuous(limits = c(-79.65,-79.1)) +
+      theme(axis.text = element_blank(),axis.title = element_blank(),
+            axis.ticks = element_blank(), legend.position = "none",
+            panel.grid.minor = element_blank(), panel.grid.major = element_blank(),
+            plot.title = element_text(size = title.size, face = "bold"),
+            plot.subtitle = element_text(size = title.size*0.6, face = "plain"),
+            plot.background = element_rect(fill = "grey95")) +
+      labs(title = paste0("Point Density Map of Watermain Breaks"),
+           subtitle = paste0("City of Toronto ","(",i,")")) +
+      geom_text(data = wm.df %>% filter(month == i) %>% 
+                  summarise(n = paste("n =",sum(month=n()))),
+                aes(x=-79.17,y=43.62,label = n), size = title.size*0.3) 
+    print(g.loop)
+  }
+}, movie.name = "wm_map_mth.gif", interval=0.9, nmax=30,2)
+
+
