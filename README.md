@@ -8,4 +8,4 @@ Project Objectives:
   3. Conduct time series analysis to forecast watermain breaks in Toronto
   4. Conduct historic spatial clustering analysis on watermain breaks in Toronto
 
-Final product of this analysis will be an interactive tool - [Shiny Application](https://shiny.rstudio.com/) to summarize the results from the analysis.
+
