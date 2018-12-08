@@ -1,7 +1,7 @@
 # Toronto Weather from Pearson International Airport
 #   https://toronto.weatherstats.ca/download.html
 
-list.of.packages <- c("readr","ggplot2","dplyr","tidyr","magrittr",
+list.of.packages <- c("readr","ggplot2","plyr","dplyr","tidyr","magrittr",
                       "viridis","lubridate","grid","gridExtra","purrr",
                       "knitr","dygraphs","xts","ochRe")
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
@@ -23,7 +23,8 @@ str(TO.daily)
 dim(TO.daily)
 
 # Assess Missing Data
-lapply(TO.daily,function(x) { any(is.na(x))} ) %>% unlist() %>% as.data.frame()
+lapply(TO.daily,function(x) { any(is.na(x))} ) %>% unlist() %>% as.data.frame() 
+# all columns have at least one missing data point
 
 NA.TO.daily <- TO.daily %>% 
   map(~sum(is.na(.))) %>% 

@@ -7,7 +7,7 @@ cat("\014")
 Sys.Date()
 sessionInfo()
 
-list.of.packages <- c("readxl","readr","ggplot2","dplyr","magrittr","viridis","lubridate","grid","gridExtra")
+list.of.packages <- c("readxl","readr","ggplot2","plyr","tidyr","dplyr","magrittr","viridis","lubridate","grid","gridExtra")
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
 if(length(new.packages)) install.packages(new.packages)
 lapply(list.of.packages, require, character.only = TRUE)

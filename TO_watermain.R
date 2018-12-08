@@ -7,7 +7,7 @@ cat("\014")
 Sys.Date()
 sessionInfo()
 
-list.of.packages <- c("readr","readxl","ggplot2","dplyr","magrittr",
+list.of.packages <- c("readr","readxl","ggplot2","plyr","tidyr","dplyr","magrittr",
                       "viridis","lubridate","grid","gridExtra",
                       "maps","ggmap","cluster","knitr","dygraphs","xts")
 new.packages <- list.of.packages[!(list.of.packages %in% installed.packages()[,"Package"])]
@@ -46,7 +46,7 @@ latlon[,c("lon","lat")]
 # Bind lat/lon to wm.df
 wm.df <- wm.df %>% bind_cols(latlon %>% select(lat,lon))
 
-# Add extra resolution with dates
+# Add floor dates by week and month
 wm.df$week <- floor_date(wm.df$Date, unit = "week")
 wm.df$month <- floor_date(wm.df$Date, unit = "month")
 
@@ -55,6 +55,19 @@ wm.df$month <- floor_date(wm.df$Date, unit = "month")
 
 # Exploratory Analysis + Cleaning ####
 summary(wm.df) #some values for X and Y coords are very high or low? likely errors
+
+?map
+purrr::map
+wm.df %>% summarise(median = median(year),
+                    mean = mean(year),
+                    max = max(year),
+                    min = min(year),
+                    sd = sd(year),
+                    n = n())
+
+
+
+
 
 wm.df %>% arrange(desc(Y_coord))
 wm.df %>% arrange(desc(X_coord)) #error is X_coord = 4845681.6, not a Y_coord either
@@ -93,8 +106,8 @@ ggplot(data = week.wm, aes(x=week,y=n)) +
 # line plot with smoother and mean
 ggplot(data = mthwk.wm, aes(x=month,y=n)) +
    geom_boxplot(aes(group = month),alpha=0.9) +
-   stat_summary(geom="line",fun.y = "mean",color = "red",size=1.5,alpha=0.8) +
-   geom_smooth()
+   stat_summary(geom="line",fun.y = "mean",color = "red",size=1.5,alpha=0.7) +
+   geom_smooth(method="loess")
 
 # seasonality assessment
 ggplot(mthwk.wm, aes(x=month_n,y=n)) +
@@ -155,6 +168,11 @@ autoplot(ytrend_m.ts,main = "Yearly Trend for Watermain Breaks per Month")
 # detrended time series
 detrend_m.ts <- m.ts - ytrend_m.ts
 autoplot(detrend_m.ts, main = "Detrended Watermain Breaks per Month")
+
+grid.arrange(
+  autoplot(m.ts, main = "Time Series Watermain Breaks per Month in Toronto"), #plot monthly trend
+  autoplot(detrend_m.ts, main = "Detrended Watermain Breaks per Month")
+)
 
 # using decompose
 autoplot(decompose(m.ts, type = "additive"))
@@ -217,7 +235,7 @@ dygraph(wm.tsm, main = "City of Toronto Watermain Breaks by Month") %>%
   dyRangeSelector(dateWindow = c("2007-01-01", "2017-01-01")) %>%
   add_shades(ok_periods, color = "#E3E2E2")
 
-# Visualize Spatial Data ####
+# DEPRECATED: Visualize Spatial Data
 
 # using X_coord, Y_coord
 g1 <-ggplot(data = wm.df %>% filter(year == i), aes(x = X_coord, y = Y_coord)) +
@@ -245,8 +263,7 @@ grid.arrange(g1,g2,nrow=2)
 
 
 
-# Plot the spatial data
-
+# Plot the spatial data ####
 ggplot(data = wm.df, aes(x = X_coord, y = Y_coord, color = year)) +
   geom_point(size = 1.5, alpha = 0.2) +
   scale_color_viridis(option = "B") +
@@ -280,8 +297,76 @@ plot.TO.wm(1993,1998,ncol=2,face = T, band = 200)
 plot.TO.wm(1990,2016,face = T,ncol = 4,band = 200,
            file.out = TRUE, h = 14, w = 9)
 
-# Plot animation of spatial data
+# Plot cumulative effect of watermain breaks using 'gganimate' package
+library(gganimate)
+library(animation)
+aspect.w <- 800  #mm
+aspect.r <- 1.5
+title.size <- 18
+ani.options(interval = 0.1, ani.width=aspect.w,ani.height=aspect.w/aspect.r, units="px") #set .gif dimensions
 
+# Overlay on Map #
+TO.lims <- c(left=-79.73238,bottom=43.59641,right=-79.02154,top=43.74549)
+TO.coord <- c(lon = -79.3832, lat = 43.6532)
+TO_map1 <- get_map(location = TO.lims, maptype = "terrain",
+                   scale = 2, color = "bw", zoom = 11)
+
+ggmap(TO_map1) +
+  geom_point(data = wm.df, aes(x = lon, y = lat), 
+             size = 1, alpha = 0.25, colour = "grey5") +
+  stat_density_2d(data = wm.df, 
+                  aes(x = lon, y = lat, fill = ..density.., alpha = ..density..), 
+                  geom = "density_2d", bins = 20) +
+  scale_fill_viridis(guide = "none", option = "inferno") + 
+  scale_alpha(range = c(0, 1))
+
+
+sbbox <- make_bbox(lon = wm.df$lon, lat = wm.df$lat, f = 1.5)
+TO_map2 <- get_map(location = sbbox, maptype = "roadmap",
+                   scale = 2, color = "bw", zoom = 10)
+
+
+pout1 <- ggmap(TO_map2, extent = "panel", darken = 0.8) + 
+  geom_point(data = wm.df %>% filter(year %in% seq(1990,2001)), aes(x = lon, y = lat,
+                               frame = month, cumulative = TRUE),
+             size = 1, alpha = 0.2, color = "yellow") +
+  # scale_color_viridis(option = "B") +
+  labs(title = paste0("Map of Watermain Breaks: "),
+       subtitle = paste0("City of Toronto (1990-2016)")) +
+  theme(axis.text = element_blank(), axis.title = element_blank(),
+        axis.ticks = element_blank(), panel.background = element_rect(fill = "grey95",colour = "grey5"),
+        legend.background = element_rect(fill = "grey95"),
+        panel.grid.minor = element_blank(), panel.grid.major = element_blank(),
+        plot.title = element_text(size = title.size, face = "bold"),
+        plot.subtitle = element_text(size = title.size*0.6, face = "plain"),
+        plot.background = element_rect(fill = "grey95")) +
+  facet_wrap(~year)
+
+gganimate(pout1, filename = "wm_month_yr_map.gif", title_frame = TRUE)
+
+pbyyr1990 <- ggplot(data = wm.df %>% filter(year == 1990), aes(x = X_coord, y = Y_coord, color = as.factor(month), frame = week, cumulative = TRUE)) +
+  geom_point(size = 1.5, alpha = 0.5) +
+  scale_color_viridis(option = "B", discrete = TRUE) +
+  labs(title = paste0("Map of Watermain Breaks"),
+       subtitle = paste0("City of Toronto (1990-2016)")) +
+  theme(axis.text = element_blank(), axis.title = element_blank(),
+        axis.ticks = element_blank(), panel.background = element_rect(fill = "grey95",colour = "grey5"),
+        legend.background = element_rect(fill = "grey95"),
+        panel.grid.minor = element_blank(), panel.grid.major = element_blank(),
+        plot.title = element_text(size = title.size, face = "bold"),
+        plot.subtitle = element_text(size = title.size*0.6, face = "plain"),
+        plot.background = element_rect(fill = "grey95"))
+
+gganimate(pbyyr1, filename = "wm_week_1990.gif", title_frame = TRUE)
+
+
+
+
+
+
+
+
+# Plot animation of spatial data ####
 library(animation)
 aspect.w <- 800
 aspect.r <- 1.6

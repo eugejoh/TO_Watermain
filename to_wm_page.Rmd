@@ -1,0 +1,108 @@
+---
+title: "Untitled"
+author: "Eugene Joh"
+date: "December 7, 2018"
+output: 
+  html_document:
+    toc: true
+    toc_float: true
+    smooth_scroll: false
+    theme: lumen
+    fig_width: 7
+    fig_height: 6
+    fig_caption: true
+    code_folding: hide
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = TRUE, message = TRUE, fig.retina = 2)
+```
+
+# Watermain Breaks Part 1  
+This builds off of my blog post from [here](https://incidental-ideas.org/2017/12/09/watermain-breaks-in-the-city-of-toronto/).  
+
+## What are Watermain Breaks?  
+Within these drinking water systems, the large pipes that carry most of the water through the system from the treatment plant through the distribution system are called **watermains** (or water mains). In the event of a watermain failing, either by a crack, some leaking or a catastrophic break, this can have potential effects on the flow of water to users. There can be loss of pressure in the distribution system, potentially allowing contaminants (chemical or microbiological) to enter the drinking water system due to the loss of pressure. No one wants to have *E. coli* or some industrial chemical in their tap water.  
+
+There are many factors behind a watermain failure. Most of the time there multiple concurrent factors that cause the pipe to crack or break. A non-exhaustive list of factors include type of pipe material, age of pipe, surrounding soil conditions, corrosion, pressure fluctuations, direct damage, extreme temperatures, extreme weather events, and poor system design.  
+
+## Toronto Open Data  
+The City of Toronto has an [Open Data Catalogue](https://www.toronto.ca/city-government/data-research-maps/open-data/) containing various types of datasets on a number of topics like environment, public safety, development, and government. You can follow them on Twitter to know when they update/refresh their data. The watermain break data can be found here. I downloaded the Excel flat-file containing the date and geographic location of watermain breaks from 1990 to 2016 within the city of Toronto boundaries. For this post I will be focusing on the temporal nature of the data, aka what do the trends of watermain breaks look like over time in Toronto. **The City of Toronto added shapefiles (spatial data) with the watermain breaks**.   
+
+
+# Data Analysis
+From this point forward, we'll be using the spatial data. First we load the libraries we need. We'll primarily use the `sf` package for all our spatial data processing. 
+
+```{r packs}
+library(here)
+library(rgdal)
+library(sp)
+library(sf)
+library(leaflet)
+library(dplyr)
+```
+
+
+## Data Import
+```{r}
+list.files("data", "WatermainBreaks_wgs84")
+
+d_raw <- readOGR(here::here("data", "WatermainBreaks_wgs84")) #import using read
+```
+
+## Data Processing
+```{r asp_process}
+# Aspatial data processing
+dat <- sf_d
+st_geometry(dat) <- NULL
+```
+
+```{r sp_process}
+# Spatial data processing
+sf_d <- st_as_sf(d_raw) #convert sp to sf object
+
+sf::st_crs(sf_d) #check CRS, no EPSG code
+
+sf_d <- sf::st_set_crs(sf_d, 4326) #set the CRS EPSG code to WGS84 which is 4326
+# need to change this because Leaflet's default projection is 3857 (Google Mercator)
+
+sf_d <- st_transform(sf_d, crs = sf::st_crs(sf_d)) #now reproject data
+
+sf::st_crs(sf_d) #check CRS, now projected
+```
+
+# Summary Statistics
+```{r}
+dat %>% 
+  summarise_if(is.numeric,
+               median = median(.),
+                  mean = mean(.),
+                  max = max(.),
+                  min = min(.),
+                  sd = sd(.),
+                  n = n())
+```
+
+# Temporal Analysis
+```{r}
+
+```
+
+# Spatial Analysis
+```{r}
+
+```
+
+## Leaflet Map
+```{r leaflet_map}
+pal <- colorFactor(c("navy", "red"), domain = c("2015", "2016"))
+leaflet(data = dat %>% dplyr::filter(BREAK_YEAR %in% c(2015:2016))) %>% 
+  addTiles() %>% 
+  addCircleMarkers(~POINT_X, ~POINT_Y, 
+                   label = ~BREAK_DATE, color = ~pal(BREAK_YEAR), stroke = FALSE, fillOpacity = 0.75,
+                   clusterOptions = markerClusterOptions())
+```
+
+
+# Summary
+
