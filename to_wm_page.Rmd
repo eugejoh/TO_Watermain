@@ -40,6 +40,9 @@ library(sp)
 library(sf)
 library(leaflet)
 library(dplyr)
+library(tidyr)
+library(knitr)
+library(kableExtra)
 ```
 
 
@@ -51,12 +54,6 @@ d_raw <- readOGR(here::here("data", "WatermainBreaks_wgs84")) #import using read
 ```
 
 ## Data Processing
-```{r asp_process}
-# Aspatial data processing
-dat <- sf_d
-st_geometry(dat) <- NULL
-```
-
 ```{r sp_process}
 # Spatial data processing
 sf_d <- st_as_sf(d_raw) #convert sp to sf object
@@ -71,16 +68,37 @@ sf_d <- st_transform(sf_d, crs = sf::st_crs(sf_d)) #now reproject data
 sf::st_crs(sf_d) #check CRS, now projected
 ```
 
+```{r asp_process}
+sf_d <- sf_d %>% 
+  mutate(BREAK_DATE = as.POSIXct(as.character(sf_d$BREAK_DATE), format= "%Y/%m/%d")) %>% 
+  mutate(wk = lubridate::floor_date(BREAK_DATE, unit = "week"),
+         mth = lubridate::floor_date(BREAK_DATE, unit = "month"),
+         wk_n = lubridate::wday(BREAK_DATE, label = TRUE, abbr = FALSE),
+         mth_n = lubridate::month(BREAK_DATE, label = TRUE, abbr = FALSE))
+
+# Aspatial data processing
+dat <- sf_d
+st_geometry(dat) <- NULL
+
+dat %>% select(BREAK_YEAR, wk, mth) %>% 
+  dplyr::count()
+```
+
 # Summary Statistics
 ```{r}
 dat %>% 
-  summarise_if(is.numeric,
+  summarise_if(is.numeric, funs(
                median = median(.),
                   mean = mean(.),
                   max = max(.),
                   min = min(.),
                   sd = sd(.),
-                  n = n())
+                  n = n())) %>% 
+  gather() %>% 
+  tidyr::extract(col = key, into = c("vars", "stats"), regex = "(.*)_(.*)") %>% 
+  tidyr::spread(key = stats, value = value) %>% 
+  kable(col.names = c("Variables", "Maximum", "Mean", "Median", "Minimum", "N", "Standard Deviation")) %>% 
+  kable_styling(bootstrap_options = c("striped", "hover", "responsive"))
 ```
 
 # Temporal Analysis
